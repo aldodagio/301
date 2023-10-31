@@ -1,0 +1,267 @@
+id,ref,condition,loop,min,max,source
+ISA,,,,1,1,""
+ISA,ISA01,,,2,2,'00'
+ISA,ISA02,,,10,10,'330903625'.padRight(cir.min) 
+ISA,ISA03,,,2,2,'00'
+ISA,ISA04,,,10,10,''.padLeft(cir.min)
+ISA,ISA05,,,2,2,'01'
+ISA,ISA06,,,15,15,'330903625'.padRight(cir.min)
+ISA,ISA07,,,2,2,'ZZ'
+ISA,ISA08,,,15,15,'CARGOSMART'.padRight(cir.min)
+ISA,ISA09,,,6,6,"hash.now = new Date()
+hash.now.format('yyMMdd')"
+ISA,ISA10,,,4,4,hash.now.format('HHmm')
+ISA,ISA11,,,1,1,'^' 
+ISA,ISA12,,,5,5,'00401'
+ISA,ISA13,,,9,9,"import com.freightgate.lr_obx_315.X12Utils
+hash.interchangeControlNumber = X12Utils.incrementInterchangeControlNumber(hash.sql, '315', 'OBX')"
+ISA,ISA14,,,1,1,'0'
+ISA,ISA15,,,1,1,'T'
+ISA,ISA16,,,1,1,':'
+GS,,,,1,1,''
+GS,GS01,,,2,2,'RO'
+GS,GS02,,,2,15,'330903625'
+GS,GS03,,,2,15,'CARGOSMART'.padRight(cir.min)
+GS,GS04,,,8,8,"hash.now.format('yyyyMMdd')"
+GS,GS05,,,4,8,"hash.now.format('HHmm')"
+GS,GS06,,,1,9,"import com.freightgate.lr_obx_315.X12Utils
+hash.groupControlNumber = X12Utils.incrementGroupControlNumber(hash.sql, '315', 'OBX')
+hash.groupControlNumber.toString().padLeft(cir.min,'0')"
+GS,GS07,,,1,2,'X'
+GS,GS08,,,1,12,'004010'
+,,,"stba1:map:code,date",,,"
+// LX loop details generation
+import groovy.json.JsonSlurper
+ def booking = new JsonSlurper().parseText(jsonString)
+    def arrayListOfMaps = []
+
+    def suffixes = booking.keySet().findAll { it =~ "\\.[0-9]+\$" }.collect { it.tokenize(".")[1] as int }.unique()
+
+    suffixes.each { suffix ->
+        def mapEntry = [:]
+        booking.keySet().each { key ->
+            if (key =~ "\\.$suffix\$") {
+                mapEntry[key] = booking[key]
+            }
+        }
+        arrayListOfMaps << mapEntry
+    }
+
+    def numberMap = [:]
+
+    arrayListOfMaps.each { mapEntry ->
+        mapEntry.each { key, value ->
+            def number = key.tokenize(".")[1]
+            numberMap[number] = value
+        }
+    }
+hash.map = numberMap // set the hash.map value to the size of the number of items in the booking
+hash.array = arrayListOfMaps
+"
+ST,,,,1,1,''
+ST,ST01,,,3,3,'300'
+ST,ST02,,,4,9,"import com.freightgate.lr_obx_315.X12Utils
+hash.transactionSetControlNumber = X12Utils.allocateTransactionSetControlNumber(9).toUpperCase()"
+B1,,,,1,1,''
+B1,B101,,,2,4,booking.carrier_id
+B1,B102,,,1,30,(booking.carrier_id + booking.booking_no)
+B1,B103,,,8,8,"hash.now.format('yyyyMMdd')"
+B1,B104,,,1,1,'N'
+Y1,,,,1,1,''
+Y1,Y101,,,8,8,booking.etd
+Y1,Y102,,,8,8,booking.eta
+Y1,Y103,,,2,4,booking.carrier_id
+Y1,Y108,,,2,2,'PP'
+Y2,,y2_1,,1,1,booking.cargo_summary_eq_type1
+Y2,Y201,y2_1,,1,4,'1'
+Y2,Y202,y2_1,,1,1,'C'
+Y2,Y203,y2_1,,2,2,booking.cargo_summary_package_type
+Y2,Y204,y2_1,,4,4,'22G0'
+Y2,,y2_2,,1,1,booking.cargo_summary_eq_type2
+Y2,Y201,y2_2,,1,4,'1'
+Y2,Y202,y2_2,,1,1,'C'
+Y2,Y203,y2_2,,2,2,booking.cargo_summary_package_type
+Y2,Y204,y2_2,,4,4,'22G0'
+Y2,,y2_3,,1,1,booking.cargo_summary_eq_type3
+Y2,Y201,y2_3,,1,4,'1'
+Y2,Y202,y2_3,,1,1,'C'
+Y2,Y203,y2_3,,2,2,booking.cargo_summary_package_type
+Y2,Y204,y2_3,,4,4,'22G0'
+N9,,,,1,99,''
+N9,N901,,,2,3,'BN'
+N9,N902,,,1,30,booking.booking_no
+N1,,n1234_1,,1,1,booking.shipper_name
+N1,N101,n1234_1,,2,3,'EX'
+N1,N102,n1234_1,,1,60,booking.shipper_name
+N1,N103,n1234_1,,1,2,'24'
+N1,N104,n1234_1,,2,80,booking.irs_export_no
+N2,,n1234_1_1,,1,1,((booking.shipment_status != 'C') && booking.shipper_name)
+N2,N201,n1234_1_1,,1,60,booking.shipper_contact
+N3,,n1234_1_1,,1,1,(booking.shipment_status != 'C')
+N3,N301,n1234_1_1,,1,55,booking.shipper_address1
+N3,N302,n1234_1_1,,1,55,(booking.shipper_address2 + booking.shipper_address3)
+N4,,n1234_1_1,,1,1,(booking.shipment_status != 'C')
+N4,N401,n1234_1_1,,2,30,booking.shipper_city
+N4,N402,n1234_1_1,,2,2,booking.shipper_state
+N4,N403,n1234_1_1,,3,15,booking.shipper_postal_code
+N4,N404,n1234_1_1,,2,3,booking.shipper_country
+G61,,n1234_1_1,,1,1,((booking.shipment_status != 'C') && booking.shipper_name && booking.shipper_phone && booking.shipper_contact)
+G61,G6101,n1234_1_1,,2,2,'IC'
+G61,G6102,n1234_1_1,,1,60,booking.shipper_contact
+G61,G6103,n1234_1_1,,2,2,''
+G61,G6104,n1234_1_1,,1,80,"booking.shipper_phone.substring(4, booking.shipper_phone.length())"
+N1,,n1234_2,,1,1,booking.forwarding_agent_name
+N1,N101,n1234_2,,2,3,'FW'
+N1,N102,n1234_2,,1,60,booking.forwarding_agent_name
+N1,N103,n1234_2,,1,2,'24'
+N1,N104,n1234_2,,2,80,booking.forwarding_agent_code
+N1,N105,n1234_2,,2,2,'01'
+N1,N106,n1234_2,,2,3,'B2'
+N2,,n1234_2_1,,1,1,((booking.shipment_status != 'C') && booking.forwarding_agent_name && booking.forwarding_agent_phone && booking.forwarding_agent_contact)
+N2,N201,n1234_2_1,,1,60,booking.forwarding_agent_contact
+N3,,n1234_2_1,,1,1,(booking.shipment_status != 'C')
+N3,N301,n1234_2_1,,1,55,booking.forwarding_agent_address1
+N3,N302,n1234_2_1,,1,55,(booking.forwarding_agent_address2 + booking.forwarding_agent_address3)
+N4,,n1234_2_1,,1,1,(booking.shipment_status != 'C')
+N4,N401,n1234_2_1,,2,30,booking.forwarding_agent_city
+N4,N402,n1234_2_1,,2,2,booking.forwarding_agent_state
+N4,N403,n1234_2_1,,3,15,booking.forwarding_agent_postal_code
+N4,N404,n1234_2_1,,2,3,booking.forwarding_agent_country
+G61,,n1234_2_1,,1,1,((booking.shipment_status != 'C') && booking.forwarding_agent_name && booking.forwarding_agent_phone && booking.forwarding_agent_contact)
+G61,G6101,n1234_2_1,,2,2,'IC'
+G61,G6102,n1234_2_1,,1,60,booking.forwarding_agent_contact
+G61,G6103,n1234_2_1,,2,2,'TE'
+G61,G6104,n1234_2_1,,1,80,"booking.forwarding_agent_phone.substring(4, booking.forwarding_agent_phone.length())"
+N1,,n1234_3,,1,1,booking.delivery_name
+N1,N101,n1234_3,,2,3,'CN'
+N1,N102,n1234_3,,1,60,booking.delivery_name
+N1,N103,n1234_3,,1,2,'24'
+N1,N104,n1234_3,,2,80,
+N1,N105,n1234_3,,2,2,'01'
+N1,N106,n1234_3,,2,3,'B2'
+N2,,n1234_3_1,,1,1,((booking.shipment_status != 'C') && booking.delivery_name && booking.delivery_contact)
+N2,N201,n1234_3_1,,1,60,booking.delivery_contact
+N3,,n1234_3_1,,1,1,(booking.shipment_status != 'C')
+N3,N301,n1234_3_1,,1,55,booking.delivery_address1
+N3,N302,n1234_3_1,,1,55,(booking.delivery_address2 + booking.delivery_address3)
+N4,,n1234_3_1,,1,1,(booking.shipment_status != 'C')
+N4,N401,n1234_3_1,,2,30,booking.delivery_city 
+N4,N402,n1234_3_1,,2,2,booking.delivery_state
+N4,N403,n1234_3_1,,3,15,booking.delivery_postal_code
+N4,N404,n1234_3_1,,2,3,booking.delivery_country
+G61,,n1234_3_1,,1,1,((booking.shipment_status != 'C') && booking.delivery_name && booking.delivery_phone && booking.delivery_contact)
+G61,G6101,n1234_3_1,,2,2,'IC'
+G61,G6102,n1234_3_1,,1,60,booking.delivery_contact
+G61,G6103,n1234_3_1,,2,2,'TE'
+G61,G6104,n1234_3_1,,1,80,"booking.delivery_phone.substring(4, booking.delivery_phone.length())"
+N1,,n1234_4,,1,1,booking.consignee_name
+N1,N101,n1234_4,,2,3,'IC'
+N1,N102,n1234_4,,1,60,booking.consignee_name
+N1,N103,n1234_4,,1,2,'ZZ'
+N1,N104,n1234_4,,2,80,booking.consignee_code
+N1,N105,n1234_4,,2,2,'01'
+N1,N106,n1234_4,,2,3,'B2'
+N2,,n1234_4_1,,1,1,((booking.shipment_status != 'C') && booking.consignee_name && booking.consignee_contact)
+N2,N201,n1234_4_1,,1,60,booking.consignee_contact
+N3,,n1234_4_1,,1,1,(booking.shipment_status != 'C')
+N3,N301,n1234_4_1,,1,55,booking.consignee_address1
+N3,N302,n1234_4_1,,1,55,(booking.consignee_address2 + booking.consignee_address3)
+N4,,n1234_4_1,,1,1,(booking.shipment_status != 'C')
+N4,N401,n1234_4_1,,2,30,booking.consignee_city
+N4,N402,n1234_4_1,,2,2,booking.consignee_state
+N4,N403,n1234_4_1,,3,15,booking.consignee_postal_code
+N4,N404,n1234_4_1,,2,3,booking.consignee_country
+G61,,n1234_4_1,,1,1,((booking.shipment_status != 'C') && booking.consignee_name && booking.consignee_phone && booking.consignee_contact)
+G61,G6101,n1234_4_1,,2,2,'IC'
+G61,G6102,n1234_4_1,,1,60,booking.consignee_contact
+G61,G6103,n1234_4_1,,2,2,'TE'
+G61,G6104,n1234_4_1,,1,80,"booking.consignee_phone.substring(4, booking.consignee_phone.length())"
+R4,,r4_1,,1,1,booking.destination_unload_point
+R4,R401,r4_1,,1,1,'D'
+R4,R402,r4_1,,1,2,'UN'
+R4,R403,r4_1,,1,30,booking.destination_unload_point
+R4,R404,r4_1,,2,24,booking.destination_name
+R4,R405,r4_1,,2,3,booking.destination_country
+R4,R408,r4_1,,2,2,booking.final_destination_state
+DTM,,r4_1_1,,1,15,(booking.delivery_date && booking.delivery_start_time && booking.delivery_close_time)
+DTM,DTM01,r4_1_1,,3,3,'139'
+DTM,DTM02,r4_1_1,,8,8,booking.delivery_date
+DTM,DTM03,r4_1_1,,4,8,booking.delivery_start_time
+R4,,r4_2,,1,1,booking.destination_unload_point
+R4,R401,r4_2,,1,1,'E'
+R4,R402,r4_2,,1,2,'UN'
+R4,R403,r4_2,,1,30,booking.destination_unload_point
+R4,R404,r4_2,,2,24,booking.destination_name
+R4,R405,r4_2,,2,3,booking.destination_country
+R4,R408,r4_2,,2,2,booking.final_destination_state
+DTM,,r4_2_1,,1,15,(booking.delivery_date && booking.delivery_start_time && booking.delivery_close_time)
+DTM,DTM01,r4_2_1,,3,3,'139'
+DTM,DTM02,r4_2_1,,8,8,booking.delivery_date
+DTM,DTM03,r4_2_1,,4,8,booking.delivery_start_time
+R4,,r4_3,,1,1,booking.origin_load_point
+R4,R401,r4_3,,1,1,'L'
+R4,R402,r4_3,,1,2,'UN'
+R4,R403,r4_3,,1,30,booking.origin_load_point
+R4,R404,r4_3,,2,24,booking.origin_name
+R4,R405,r4_3,,2,3,booking.origin_country
+R4,R408,r4_3,,2,2,booking.shipper_state
+DTM,,r4_3_1,,1,15,(booking.pickup_date && booking.pickup_start_time && booking.pickup_close_time)
+DTM,DTM01,r4_3_1,,3,3,'139'
+DTM,DTM02,r4_3_1,,8,8,booking.pickup_date
+DTM,DTM03,r4_3_1,,4,8,booking.pickup_start_time
+R4,,r4_4,,1,1,booking.origin_load_point
+R4,R401,r4_4,,1,1,'R'
+R4,R402,r4_4,,1,2,'UN'
+R4,R403,r4_4,,1,30,booking.origin_load_point
+R4,R404,r4_4,,2,24,booking.origin_name
+R4,R405,r4_4,,2,3,booking.origin_country
+R4,R408,r4_4,,2,2,booking.shipper_state
+DTM,,r4_4_1,,1,15,(booking.pickup_date && booking.pickup_start_time && booking.pickup_close_time)
+DTM,DTM01,r4_4_1,,3,3,'139'
+DTM,DTM02,r4_4_1,,8,8,booking.pickup_date
+DTM,DTM03,r4_4_1,,4,8,booking.pickup_start_time
+LX,,,stba1,1,1,''
+LX,LX01,,stba1,1,6,code
+L0,,,stba1,1,1,''
+L0,L001,,stba1,1,3,hash.array[code]["line_number." + code.toString()]
+L0,L004,,stba1,1,10,hash.array[code]["weight_gross." + code.toString()]
+L0,L005,,stba1,1,2,'G'
+L0,L006,,stba1,1,8,hash.array[code]["volume." + code.toString()]
+L0,L007,,stba1,1,1,'X'
+L0,L008,,stba1,1,7,hash.array[code]["quantity." + code.toString()]
+L0,L009,,stba1,3,3,'PCS'
+L0,L0011,,stba1,1,1,'K'
+L5,,,stba1,1,1,''
+L5,L501,,stba1,1,3,hash.array[code]["line_number." + code.toString()]
+L5,L502,,stba1,1,50,hash.array[code]["description." + code.toString()]
+L5,L503,,stba1,1,30,hash.array[code]["hts_code1." + code.toString()]
+L5,L504,,stba1,1,1,'J'
+H1,,h1_1,stba1,1,1,hash.array[code]["un_haz_class." + code.toString()]
+H1,H101,h1_1,stba1,4,10,''
+H1,H102,h1_1,stba1,1,4,''
+H1,H103,h1_1,stba1,1,1,''
+H1,H104,h1_1,stba1,2,30,''
+H1,H105,h1_1,stba1,1,24,''
+H1,H106,h1_1,stba1,1,6,''
+H1,H107,h1_1,stba1,1,3,''
+H1,H108,h1_1,stba1,2,2,''
+H1,H109,h1_1,stba1,1,3,''
+H2,,h1_1,stba1,1,1,''
+H2,H201,h1_1,stba1,2,30,''
+H2,H202,h1_1,stba1,1,512,''
+V1,,,,1,1,''
+V1,V101,,,1,20,booking.vessel_name
+V1,V102,,,2,35,''
+V1,V104,,,2,10,''
+V1,V105,,,2,4,booking.carrier_id
+V1,V107,,,2,2,''
+V1,V108,,,1,1,''
+SE,,,,1,1,
+SE,SE01,,,1,10,hash.segmentCount
+SE,SE02,,,4,9,hash.transactionSetControlNumber
+GE,,,,1,1,
+GE,GE01,,,1,6,hash.transactionSetCount
+GE,GE02,,,1,9,hash.groupControlNumber
+IEA,,,,1,1,
+IEA,IEA01,,,1,5,hash.functionGroupCount
+IEA,IEA02,,,9,9,hash.interchangeControlNumber
