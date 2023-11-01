@@ -4,18 +4,18 @@ ISA,ISA01,,,2,2,'00'
 ISA,ISA02,,,10,10,'330903625'.padRight(cir.min) 
 ISA,ISA03,,,2,2,'00'
 ISA,ISA04,,,10,10,''.padLeft(cir.min)
-ISA,ISA05,,,2,2,'01'
+ISA,ISA05,,,2,2,'ZZ'
 ISA,ISA06,,,15,15,'330903625'.padRight(cir.min)
 ISA,ISA07,,,2,2,'ZZ'
 ISA,ISA08,,,15,15,'CARGOSMART'.padRight(cir.min)
 ISA,ISA09,,,6,6,"hash.now = new Date()
 hash.now.format('yyMMdd')"
 ISA,ISA10,,,4,4,hash.now.format('HHmm')
-ISA,ISA11,,,1,1,'^' 
+ISA,ISA11,,,1,1,'U' 
 ISA,ISA12,,,5,5,'00401'
 ISA,ISA13,,,9,9,"import com.freightgate.lr_obx_315.X12Utils
 hash.interchangeControlNumber = X12Utils.incrementInterchangeControlNumber(hash.sql, '315', 'OBX')"
-ISA,ISA14,,,1,1,'0'
+ISA,ISA14,,,1,1,'1'
 ISA,ISA15,,,1,1,'T'
 ISA,ISA16,,,1,1,':'
 GS,,,,1,1,''
@@ -32,61 +32,77 @@ GS,GS08,,,1,12,'004010'
 ,,,"stba1:map:code,date",,,"
 // LX loop details generation
 import groovy.json.JsonSlurper
- def booking = new JsonSlurper().parseText(jsonString)
     def arrayListOfMaps = []
 
-    def suffixes = booking.keySet().findAll { it =~ "\\.[0-9]+\$" }.collect { it.tokenize(".")[1] as int }.unique()
+// Initialize a map for each number (0, 1, 2, etc.)
+def numberMaps = [:]
 
-    suffixes.each { suffix ->
-        def mapEntry = [:]
-        booking.keySet().each { key ->
-            if (key =~ "\\.$suffix\$") {
-                mapEntry[key] = booking[key]
-            }
+booking.each { key, value ->
+    if (key.endsWith('.0') || key.endsWith('.1') || key.endsWith('.2')) {
+        def suffix = key.tokenize('.')[1]
+
+        // Check if the numberMap for this suffix exists, if not, create one
+        if (!numberMaps[suffix]) {
+            numberMaps[suffix] = [:]
         }
-        arrayListOfMaps << mapEntry
-    }
 
-    def numberMap = [:]
-
-    arrayListOfMaps.each { mapEntry ->
-        mapEntry.each { key, value ->
-            def number = key.tokenize(".")[1]
-            numberMap[number] = value
-        }
+        // Add the key-value pair to the numberMaps
+        numberMaps[suffix][key] = value
     }
-hash.map = numberMap // set the hash.map value to the size of the number of items in the booking
+}
+
+// Convert the numberMaps to a list of maps
+numberMaps.each { _, map ->
+    arrayListOfMaps << map
+}
+hash.map = numberMaps // set the hash.map value to the size of the number of items in the booking
 hash.array = arrayListOfMaps
+if(booking['cargo_summary_package_type'].equalsIgnoreCase('FCL')){
+ hash.serviceCode = '03'
+}
+else if(booking['cargo_summary_package_type'].equalsIgnoreCase('LCL')){
+ hash.serviceCode = '02'
+}
 "
 ST,,,,1,1,''
-ST,ST01,,,3,3,'300'
+ST,ST01,,,3,3,'301'
 ST,ST02,,,4,9,"import com.freightgate.lr_obx_315.X12Utils
 hash.transactionSetControlNumber = X12Utils.allocateTransactionSetControlNumber(9).toUpperCase()"
 B1,,,,1,1,''
 B1,B101,,,2,4,booking.carrier_id
 B1,B102,,,1,30,(booking.carrier_id + booking.booking_no)
 B1,B103,,,8,8,"hash.now.format('yyyyMMdd')"
-B1,B104,,,1,1,'N'
-Y1,,,,1,1,''
-Y1,Y101,,,8,8,booking.etd
-Y1,Y102,,,8,8,booking.eta
-Y1,Y103,,,2,4,booking.carrier_id
-Y1,Y108,,,2,2,'PP'
-Y2,,y2_1,,1,1,booking.cargo_summary_eq_type1
-Y2,Y201,y2_1,,1,4,'1'
-Y2,Y202,y2_1,,1,1,'C'
-Y2,Y203,y2_1,,2,2,booking.cargo_summary_package_type
-Y2,Y204,y2_1,,4,4,'22G0'
-Y2,,y2_2,,1,1,booking.cargo_summary_eq_type2
-Y2,Y201,y2_2,,1,4,'1'
-Y2,Y202,y2_2,,1,1,'C'
-Y2,Y203,y2_2,,2,2,booking.cargo_summary_package_type
-Y2,Y204,y2_2,,4,4,'22G0'
-Y2,,y2_3,,1,1,booking.cargo_summary_eq_type3
-Y2,Y201,y2_3,,1,4,'1'
-Y2,Y202,y2_3,,1,1,'C'
-Y2,Y203,y2_3,,2,2,booking.cargo_summary_package_type
-Y2,Y204,y2_3,,4,4,'22G0'
+B1,B104,,,1,1,'A'
+G61,,n1234_1,,1,3,(booking.shipper_name && booking.shipper_phone && booking.shipper_contact)
+G61,G6101,n1234_1,,2,2,'IC'
+G61,G6102,n1234_1,,1,60,booking.shipper_contact
+G61,G6103,n1234_1,,2,2,'TE'
+G61,G6104,n1234_1,,1,80,"booking.shipper_phone.substring(4, booking.shipper_phone.length())"
+Y3,,,,1,1,''
+Y3,Y301,,,1,17,booking.booking_no
+Y3,Y302,,,2,4,booking.carrier_id
+Y3,Y303,,,8,8,booking.pickup_date
+Y3,Y304,,,8,8,booking.delivery_date
+Y3,Y307,,,8,8,''
+Y3,Y310,,,2,2,'PP'
+Y4,,y4_1,,1,1,booking.cargo_summary_eq_type1
+Y4,Y401,y2_1,,1,4,booking.booking_no
+Y4,Y403,y2_1,,1,1,booking.delivery_date
+Y4,Y405,y2_1,,2,2,'1'
+Y4,Y406,y2_1,,4,4,'45G1'
+Y4,Y410,y2_1,,4,4,'PP'
+Y4,,y4_2,,1,1,booking.cargo_summary_eq_type2
+Y4,Y401,y2_1,,1,4,booking.booking_no
+Y4,Y403,y2_1,,1,1,booking.delivery_date
+Y4,Y405,y2_1,,2,2,'1'
+Y4,Y406,y2_1,,4,4,'45G1'
+Y4,Y410,y2_1,,4,4,'PP'
+Y4,,y4_3,,1,1,booking.cargo_summary_eq_type3
+Y4,Y401,y2_1,,1,4,booking.booking_no
+Y4,Y403,y2_1,,1,1,booking.delivery_date
+Y4,Y405,y2_1,,2,2,'1'
+Y4,Y406,y2_1,,4,4,'45G1'
+Y4,Y410,y2_1,,4,4,'PP'
 N9,,,,1,99,''
 N9,N901,,,2,3,'BN'
 N9,N902,,,1,30,booking.booking_no
@@ -95,17 +111,17 @@ N1,N101,n1234_1,,2,3,'EX'
 N1,N102,n1234_1,,1,60,booking.shipper_name
 N1,N103,n1234_1,,1,2,'24'
 N1,N104,n1234_1,,2,80,booking.irs_export_no
-N2,,n1234_1_1,,1,1,((booking.shipment_status != 'C') && booking.shipper_name)
+N2,,n1234_1_1,,1,1,booking.shipper_contact
 N2,N201,n1234_1_1,,1,60,booking.shipper_contact
-N3,,n1234_1_1,,1,1,(booking.shipment_status != 'C')
+N3,,n1234_1_1,,1,1,booking.shipper_address1
 N3,N301,n1234_1_1,,1,55,booking.shipper_address1
 N3,N302,n1234_1_1,,1,55,(booking.shipper_address2 + booking.shipper_address3)
-N4,,n1234_1_1,,1,1,(booking.shipment_status != 'C')
+N4,,n1234_1_1,,1,1,booking.shipper_city
 N4,N401,n1234_1_1,,2,30,booking.shipper_city
 N4,N402,n1234_1_1,,2,2,booking.shipper_state
 N4,N403,n1234_1_1,,3,15,booking.shipper_postal_code
 N4,N404,n1234_1_1,,2,3,booking.shipper_country
-G61,,n1234_1_1,,1,1,((booking.shipment_status != 'C') && booking.shipper_name && booking.shipper_phone && booking.shipper_contact)
+G61,,n1234_1_1,,1,1,(booking.shipper_name && booking.shipper_phone && booking.shipper_contact)
 G61,G6101,n1234_1_1,,2,2,'IC'
 G61,G6102,n1234_1_1,,1,60,booking.shipper_contact
 G61,G6103,n1234_1_1,,2,2,''
@@ -117,17 +133,17 @@ N1,N103,n1234_2,,1,2,'24'
 N1,N104,n1234_2,,2,80,booking.forwarding_agent_code
 N1,N105,n1234_2,,2,2,'01'
 N1,N106,n1234_2,,2,3,'B2'
-N2,,n1234_2_1,,1,1,((booking.shipment_status != 'C') && booking.forwarding_agent_name && booking.forwarding_agent_phone && booking.forwarding_agent_contact)
+N2,,n1234_2_1,,1,1,(booking.forwarding_agent_name && booking.forwarding_agent_phone && booking.forwarding_agent_contact)
 N2,N201,n1234_2_1,,1,60,booking.forwarding_agent_contact
-N3,,n1234_2_1,,1,1,(booking.shipment_status != 'C')
+N3,,n1234_2_1,,1,1,booking.forwarding_agent_address1
 N3,N301,n1234_2_1,,1,55,booking.forwarding_agent_address1
 N3,N302,n1234_2_1,,1,55,(booking.forwarding_agent_address2 + booking.forwarding_agent_address3)
-N4,,n1234_2_1,,1,1,(booking.shipment_status != 'C')
+N4,,n1234_2_1,,1,1,booking.forwarding_agent_city
 N4,N401,n1234_2_1,,2,30,booking.forwarding_agent_city
 N4,N402,n1234_2_1,,2,2,booking.forwarding_agent_state
 N4,N403,n1234_2_1,,3,15,booking.forwarding_agent_postal_code
 N4,N404,n1234_2_1,,2,3,booking.forwarding_agent_country
-G61,,n1234_2_1,,1,1,((booking.shipment_status != 'C') && booking.forwarding_agent_name && booking.forwarding_agent_phone && booking.forwarding_agent_contact)
+G61,,n1234_2_1,,1,1,(booking.forwarding_agent_name && booking.forwarding_agent_phone && booking.forwarding_agent_contact)
 G61,G6101,n1234_2_1,,2,2,'IC'
 G61,G6102,n1234_2_1,,1,60,booking.forwarding_agent_contact
 G61,G6103,n1234_2_1,,2,2,'TE'
@@ -139,17 +155,17 @@ N1,N103,n1234_3,,1,2,'24'
 N1,N104,n1234_3,,2,80,
 N1,N105,n1234_3,,2,2,'01'
 N1,N106,n1234_3,,2,3,'B2'
-N2,,n1234_3_1,,1,1,((booking.shipment_status != 'C') && booking.delivery_name && booking.delivery_contact)
+N2,,n1234_3_1,,1,1,(booking.delivery_name && booking.delivery_contact)
 N2,N201,n1234_3_1,,1,60,booking.delivery_contact
 N3,,n1234_3_1,,1,1,(booking.shipment_status != 'C')
 N3,N301,n1234_3_1,,1,55,booking.delivery_address1
 N3,N302,n1234_3_1,,1,55,(booking.delivery_address2 + booking.delivery_address3)
-N4,,n1234_3_1,,1,1,(booking.shipment_status != 'C')
+N4,,n1234_3_1,,1,1,booking.delivery_city 
 N4,N401,n1234_3_1,,2,30,booking.delivery_city 
 N4,N402,n1234_3_1,,2,2,booking.delivery_state
 N4,N403,n1234_3_1,,3,15,booking.delivery_postal_code
 N4,N404,n1234_3_1,,2,3,booking.delivery_country
-G61,,n1234_3_1,,1,1,((booking.shipment_status != 'C') && booking.delivery_name && booking.delivery_phone && booking.delivery_contact)
+G61,,n1234_3_1,,1,1,(booking.delivery_name && booking.delivery_phone && booking.delivery_contact)
 G61,G6101,n1234_3_1,,2,2,'IC'
 G61,G6102,n1234_3_1,,1,60,booking.delivery_contact
 G61,G6103,n1234_3_1,,2,2,'TE'
@@ -161,17 +177,17 @@ N1,N103,n1234_4,,1,2,'ZZ'
 N1,N104,n1234_4,,2,80,booking.consignee_code
 N1,N105,n1234_4,,2,2,'01'
 N1,N106,n1234_4,,2,3,'B2'
-N2,,n1234_4_1,,1,1,((booking.shipment_status != 'C') && booking.consignee_name && booking.consignee_contact)
+N2,,n1234_4_1,,1,1,(booking.consignee_name && booking.consignee_contact)
 N2,N201,n1234_4_1,,1,60,booking.consignee_contact
-N3,,n1234_4_1,,1,1,(booking.shipment_status != 'C')
+N3,,n1234_4_1,,1,1,booking.consignee_address1
 N3,N301,n1234_4_1,,1,55,booking.consignee_address1
 N3,N302,n1234_4_1,,1,55,(booking.consignee_address2 + booking.consignee_address3)
-N4,,n1234_4_1,,1,1,(booking.shipment_status != 'C')
+N4,,n1234_4_1,,1,1,booking.consignee_city
 N4,N401,n1234_4_1,,2,30,booking.consignee_city
 N4,N402,n1234_4_1,,2,2,booking.consignee_state
 N4,N403,n1234_4_1,,3,15,booking.consignee_postal_code
 N4,N404,n1234_4_1,,2,3,booking.consignee_country
-G61,,n1234_4_1,,1,1,((booking.shipment_status != 'C') && booking.consignee_name && booking.consignee_phone && booking.consignee_contact)
+G61,,n1234_4_1,,1,1,(booking.consignee_name && booking.consignee_phone && booking.consignee_contact)
 G61,G6101,n1234_4_1,,2,2,'IC'
 G61,G6102,n1234_4_1,,1,60,booking.consignee_contact
 G61,G6103,n1234_4_1,,2,2,'TE'
